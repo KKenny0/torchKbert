@@ -760,10 +760,10 @@ class BertModel(BertPreTrainedModel):
         is_hierarchical=False, 
         prior_states=None
     ):
-    """
-    is_hierarchical: 是否调用层次位置编码
-    prior_states: 是否在最后一层进行 knowledge-guided attention
-    """
+        """
+        is_hierarchical: 是否调用层次位置编码
+        prior_states: 是否在最后一层进行 knowledge-guided attention
+        """
         if attention_mask is None:
             attention_mask = torch.ones_like(input_ids)
         if token_type_ids is None:
