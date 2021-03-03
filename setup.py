@@ -38,15 +38,15 @@ from setuptools import find_packages, setup
 
 setup(
     name="torchKbert",
-    version="0.1",
+    version="0.0.1",
     author="KennyWu",
     author_email="kennywu96@163.com",
     description="An customized pytorch version of pre-trained model. Support hierarchical position encoding.",
     long_description=open("README.md", "r", encoding='utf-8').read(),
     long_description_content_type="text/markdown",
-    keywords='BERT NLP deep learning google',
+    keywords='BERT NLP deep learning',
     license='Apache',
-    url="https://github.com/huggingface/pytorch-pretrained-BERT",
+    url="https://github.com/KKenny0/torchKbert",
     packages=find_packages(exclude=["*.tests", "*.tests.*",
                                     "tests.*", "tests"]),
     install_requires=['torch>=0.4.1',
@@ -57,7 +57,7 @@ setup(
                       'regex'],
     entry_points={
       'console_scripts': [
-        "pytorch_pretrained_bert=pytorch_pretrained_bert.__main__:main",
+        "torchKbert=torchKbert.__main__:main",
       ]
     },
     # python_requires='>=3.5.0',
