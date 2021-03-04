@@ -304,7 +304,7 @@ class BertEmbeddings(nn.Module):
 
 
 class BertSelfAttention(nn.Module):
-    def __init__(self, config, prior_knowledge=False):
+    def __init__(self, config):
         super(BertSelfAttention, self).__init__()
         if config.hidden_size % config.num_attention_heads != 0:
             raise ValueError(
@@ -314,7 +314,7 @@ class BertSelfAttention(nn.Module):
         self.attention_head_size = int(config.hidden_size / config.num_attention_heads)
         self.all_head_size = self.num_attention_heads * self.attention_head_size
 
-        input_size = config.hidden_size + config.pos_hidden_size if prior_knowledge else config.hidden_size
+        input_size = config.hidden_size + config.pos_hidden_size if config.prior_knowledge=="True" else config.hidden_size
 
         self.query = nn.Linear(input_size, self.all_head_size)
         self.key = nn.Linear(input_size, self.all_head_size)
@@ -434,7 +434,12 @@ class BertEncoder(nn.Module):
     def __init__(self, config):
         super(BertEncoder, self).__init__()
         layer = BertLayer(config)
-        self.layer = nn.ModuleList([copy.deepcopy(layer) for _ in range(config.num_hidden_layers)])
+        layer_prior = BertLayer(config)
+        self.layer = nn.ModuleList([copy.deepcopy(layer) for _ in range(config.num_hidden_layers-1)])
+        if config.prior_knowledge == "True":
+            self.layer.append(copy.deepcopy(layer_prior))
+        else:
+            self.layer.append(copy.deepcopy(layer))
 
     def forward(
         self, 
