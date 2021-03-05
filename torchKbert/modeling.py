@@ -146,8 +146,7 @@ class BertConfig(object):
                  attention_probs_dropout_prob=0.1,
                  max_position_embeddings=512,
                  type_vocab_size=2,
-                 initializer_range=0.02,
-                 pos_hidden_size=9):
+                 initializer_range=0.02):
         """Constructs BertConfig.
 
         Args:
@@ -190,7 +189,6 @@ class BertConfig(object):
             self.max_position_embeddings = max_position_embeddings
             self.type_vocab_size = type_vocab_size
             self.initializer_range = initializer_range
-            self.pos_hidden_size = pos_hidden_size
         else:
             raise ValueError("First argument must be either a vocabulary size (int)"
                              "or the path to a pretrained model config file (str)")
@@ -314,10 +312,8 @@ class BertSelfAttention(nn.Module):
         self.attention_head_size = int(config.hidden_size / config.num_attention_heads)
         self.all_head_size = self.num_attention_heads * self.attention_head_size
 
-        input_size = config.hidden_size + config.pos_hidden_size if config.prior_knowledge=="True" else config.hidden_size
-
-        self.query = nn.Linear(input_size, self.all_head_size)
-        self.key = nn.Linear(input_size, self.all_head_size)
+        self.query = nn.Linear(config.hidden_size, self.all_head_size)
+        self.key = nn.Linear(config.hidden_size, self.all_head_size)
         self.value = nn.Linear(config.hidden_size, self.all_head_size)
 
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
@@ -327,14 +323,10 @@ class BertSelfAttention(nn.Module):
         x = x.view(*new_x_shape)
         return x.permute(0, 2, 1, 3)
 
-    def forward(self, hidden_states, attention_mask, prior_states=None):
-        if prior_states:
-            new_states = torch.cat((hidden_states, prior_states), dim=-1)
-            mixed_query_layer = self.query(new_states)
-            mixed_key_layer = self.key(new_states)
-        else:
-            mixed_query_layer = self.query(hidden_states)
-            mixed_key_layer = self.key(hidden_states)
+    def forward(self, hidden_states, attention_mask, pos_matrix=None):
+
+        mixed_query_layer = self.query(hidden_states)
+        mixed_key_layer = self.key(hidden_states)
         mixed_value_layer = self.value(hidden_states)
 
         query_layer = self.transpose_for_scores(mixed_query_layer)
@@ -344,6 +336,8 @@ class BertSelfAttention(nn.Module):
         # Take the dot product between "query" and "key" to get the raw attention scores.
         attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
         attention_scores = attention_scores / math.sqrt(self.attention_head_size)
+        if pos_matrix != None:
+            attention_scores = torch.mul(attention_scores, pos_matrix.to_dense())
         # Apply the attention mask is (precomputed for all layers in BertModel forward() function)
         attention_scores = attention_scores + attention_mask
 
@@ -381,8 +375,8 @@ class BertAttention(nn.Module):
         self.self = BertSelfAttention(config)
         self.output = BertSelfOutput(config)
 
-    def forward(self, input_tensor, attention_mask, prior_states=None):
-        self_output = self.self(input_tensor, attention_mask, prior_states)
+    def forward(self, input_tensor, attention_mask, pos_matrix=None):
+        self_output = self.self(input_tensor, attention_mask, pos_matrix)
         attention_output = self.output(self_output, input_tensor)
         return attention_output
 
@@ -423,8 +417,8 @@ class BertLayer(nn.Module):
         self.intermediate = BertIntermediate(config)
         self.output = BertOutput(config)
 
-    def forward(self, hidden_states, attention_mask, prior_states=None):
-        attention_output = self.attention(hidden_states, attention_mask, prior_states)
+    def forward(self, hidden_states, attention_mask, pos_matrix=None):
+        attention_output = self.attention(hidden_states, attention_mask, pos_matrix)
         intermediate_output = self.intermediate(attention_output)
         layer_output = self.output(intermediate_output, attention_output)
         return layer_output
@@ -434,24 +428,19 @@ class BertEncoder(nn.Module):
     def __init__(self, config):
         super(BertEncoder, self).__init__()
         layer = BertLayer(config)
-        layer_prior = BertLayer(config)
-        self.layer = nn.ModuleList([copy.deepcopy(layer) for _ in range(config.num_hidden_layers-1)])
-        if config.prior_knowledge == "True":
-            self.layer.append(copy.deepcopy(layer_prior))
-        else:
-            self.layer.append(copy.deepcopy(layer))
+        self.layer = nn.ModuleList([copy.deepcopy(layer) for _ in range(config.num_hidden_layers)])
 
     def forward(
         self, 
         hidden_states, 
         attention_mask, 
         output_all_encoded_layers=True, 
-        prior_states=None
+        pos_matrix=None
     ):
         all_encoder_layers = []
         for i, layer_module in enumerate(self.layer):
             if i == len(self.layer) - 1:
-                hidden_states = layer_module(hidden_states, attention_mask, prior_states)
+                hidden_states = layer_module(hidden_states, attention_mask, pos_matrix)
             else:
                 hidden_states = layer_module(hidden_states, attention_mask)
             if output_all_encoded_layers:
@@ -763,11 +752,11 @@ class BertModel(BertPreTrainedModel):
         attention_mask=None, 
         output_all_encoded_layers=True, 
         is_hierarchical=False, 
-        prior_states=None
+        pos_matrix=None
     ):
         """
         is_hierarchical: 是否调用层次位置编码
-        prior_states: 是否在最后一层进行 knowledge-guided attention
+        pos_matrix: 是否在最后一层进行 knowledge-guided attention
         """
         if attention_mask is None:
             attention_mask = torch.ones_like(input_ids)
@@ -796,7 +785,7 @@ class BertModel(BertPreTrainedModel):
         encoded_layers = self.encoder(embedding_output,
                                       extended_attention_mask,
                                       output_all_encoded_layers=output_all_encoded_layers,
-                                      prior_states=prior_states)
+                                      pos_matrix=pos_matrix)
         sequence_output = encoded_layers[-1]
         pooled_output = self.pooler(sequence_output)
         if not output_all_encoded_layers:
