@@ -337,7 +337,8 @@ class BertSelfAttention(nn.Module):
         attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
         attention_scores = attention_scores / math.sqrt(self.attention_head_size)
         if pos_matrix != None:
-            attention_scores = torch.mul(attention_scores, pos_matrix.to_dense())
+            pos_matrix = pos_matrix.to_dense().half().unsqueeze(1).expand_as(attention_scores)
+            attention_scores = torch.mul(attention_scores, pos_matrix)
         # Apply the attention mask is (precomputed for all layers in BertModel forward() function)
         attention_scores = attention_scores + attention_mask
 
