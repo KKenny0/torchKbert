@@ -271,7 +271,7 @@ class BertEmbeddings(nn.Module):
         
         if is_hierarchical:
             alpha = 0.4
-            pos_ids = torch.arange(self.config.max_position_embeddings)
+            pos_ids = torch.arange(self.config.max_position_embeddings, dtype=torch.long, device=input_ids.device)
             position_embeddings = self.position_embeddings(pos_ids)
             position_embeddings = position_embeddings - alpha * position_embeddings[:1]
             position_embeddings = position_embeddings / (1-alpha)
