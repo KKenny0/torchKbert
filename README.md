@@ -22,7 +22,7 @@
     ```
     model = BertModel(config)
 
-    pooled_output, _ = model(input_ids, token_ids, input_mask, is_hierarchical=True)
+    encoder_outputs, _ = model(input_ids, token_ids, input_mask, is_hierarchical=True)
     ```
 
 
