@@ -9,7 +9,9 @@
 ## 功能
 - 原始的模型库 <a href="https://github.com/Meelfy/pytorch_pretrained_BERT">pytorch_pretrained_BERT</a> 中的功能仍然支持；
 - 支持<a href="https://spaces.ac.cn/archives/7947">层次分解位置编码</a>。
-- 支持<a href="https://github.com/ZhuiyiTechnology/WoBERT">基于词颗粒度的woBERT</a>。Pytorch 权重：
+- 支持<a href="https://github.com/ZhuiyiTechnology/WoBERT">基于词颗粒度的woBERT</a>。
+    Pytorch 权重（这里提供的是WoBERT Plus模型）：
+    - <a href="https://pan.baidu.com/s/1uxfRby4GXi1EpWlvlL8VCQ">chinese_wobert_plus.zip</a>（提取码: fg6j)
 
 ## 使用
 - 安装：
