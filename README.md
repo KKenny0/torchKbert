@@ -51,7 +51,8 @@
 - <strong> 2021.03.07 </strong>: 添加层次分解位置编码。
 - <strong> 2021.05.27 </strong>: 添加基于词颗粒度的中文WoBERT。
 
-## 鸣谢
+## 参考
 - 感谢 Meelfy 实现的<a href="https://github.com/Meelfy/pytorch_pretrained_BERT">pytorch_pretrained_BERT</a>，本实现完全基于pytorch_pretrained_BERT的源码。
 - 感谢苏神的 insight 和无私分享：<a href="https://spaces.ac.cn/archives/7947">层次分解位置编码，让BERT可以处理超长文本</a>。
+- <a href="https://github.com/ZhuiyiTechnology/WoBERT">WoBERT: Word-based Chinese BERT model - ZhuiyiAI</a>
 
