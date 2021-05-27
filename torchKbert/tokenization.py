@@ -74,8 +74,15 @@ def whitespace_tokenize(text):
 class BertTokenizer(object):
     """Runs end-to-end tokenization: punctuation splitting + wordpiece"""
 
-    def __init__(self, vocab_file, do_lower_case=True, max_len=None, do_basic_tokenize=True,
-                 never_split=("[UNK]", "[SEP]", "[PAD]", "[CLS]", "[MASK]")):
+    def __init__(
+        self,
+        vocab_file,
+        do_lower_case=True, 
+        max_len=None, 
+        do_basic_tokenize=True,
+        never_split=("[UNK]", "[SEP]", "[PAD]", "[CLS]", "[MASK]"),
+        pre_tokenizer=None
+    ):
         """Constructs a BertTokenizer.
 
         Args:
@@ -102,10 +109,21 @@ class BertTokenizer(object):
           self.basic_tokenizer = BasicTokenizer(do_lower_case=do_lower_case,
                                                 never_split=never_split)
         self.wordpiece_tokenizer = WordpieceTokenizer(vocab=self.vocab)
+        self.pre_tokenizer = pre_tokenizer
         self.max_len = max_len if max_len is not None else int(1e12)
 
-    def tokenize(self, text):
+    def tokenize(self, text, pre_tokenize=True):
         split_tokens = []
+
+        if pre_tokenize and self.pre_tokenizer is not None:
+            tokens = []
+            for token in self._pre_tokenize(text):
+                if token in self.vocab:
+                    tokens.append(token)
+                else:
+                    tokens.extend(self.tokenize(token, False))
+            return tokens
+
         if self.do_basic_tokenize:
             for token in self.basic_tokenizer.tokenize(text):
                 for sub_token in self.wordpiece_tokenizer.tokenize(token):

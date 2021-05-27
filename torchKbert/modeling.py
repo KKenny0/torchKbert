@@ -260,7 +260,7 @@ class BertEmbeddings(nn.Module):
 
         self.config = config
 
-    def forward(self, input_ids, token_type_ids=None, is_hierarchical=False):
+    def forward(self, input_ids, token_type_ids=None, **kwargs):
         seq_length = input_ids.size(1)
 
         position_ids = torch.arange(seq_length, dtype=torch.long, device=input_ids.device)
@@ -269,7 +269,7 @@ class BertEmbeddings(nn.Module):
         if token_type_ids is None:
             token_type_ids = torch.zeros_like(input_ids)
         
-        if is_hierarchical:
+        if 'is_hierarchical' in kwargs.keys():
             alpha = 0.4
             pos_ids = torch.arange(self.config.max_position_embeddings, dtype=torch.long, device=input_ids.device)
             position_embeddings = self.position_embeddings(pos_ids)
