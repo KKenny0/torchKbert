@@ -117,7 +117,7 @@ class BertTokenizer(object):
 
         if pre_tokenize and self.pre_tokenizer is not None:
             tokens = []
-            for token in self._pre_tokenize(text):
+            for token in self.pre_tokenizer(text):
                 if token in self.vocab:
                     tokens.append(token)
                 else:
