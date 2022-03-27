@@ -588,15 +588,6 @@ class PreTrainedModel(nn.Module):
         cache_dir = kwargs.pop('cache_dir', None)
         from_tf = kwargs.pop('from_tf', False)
 
-        # Load config
-        if config is None:
-            config_file = os.path.join(serialization_dir, CONFIG_NAME)
-            if not os.path.exists(config_file):
-                # Backward compatibility with old naming format
-                config_file = os.path.join(serialization_dir, BERT_CONFIG_NAME)
-            config = BertConfig.from_json_file(config_file)
-        logger.info("Model config {}".format(config))
-
         # Load model
         if pretrained_model_name_or_path in PRETRAINED_MODEL_ARCHIVE_MAP:
             archive_file = PRETRAINED_MODEL_ARCHIVE_MAP[pretrained_model_name_or_path]
@@ -630,6 +621,15 @@ class PreTrainedModel(nn.Module):
             with tarfile.open(resolved_archive_file, 'r:gz') as archive:
                 archive.extractall(tempdir)
             serialization_dir = tempdir
+
+        # Load config
+        if config is None:
+            config_file = os.path.join(serialization_dir, CONFIG_NAME)
+            if not os.path.exists(config_file):
+                # Backward compatibility with old naming format
+                config_file = os.path.join(serialization_dir, BERT_CONFIG_NAME)
+            config = BertConfig.from_json_file(config_file)
+        logger.info("Model config {}".format(config))
 
         # Instantiate model.
         model = cls(config, *inputs, **kwargs)
