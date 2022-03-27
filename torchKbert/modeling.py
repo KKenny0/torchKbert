@@ -534,12 +534,11 @@ class BertPreTrainingHeads(nn.Module):
         return prediction_scores, seq_relationship_score
 
 
-class BertPreTrainedModel(nn.Module):
-    """ An abstract class to handle weights initialization and
-        a simple interface for dowloading and loading pretrained models.
+class PreTrainedModel(nn.Module):
+    r""" Base class for Bert models.
     """
     def __init__(self, config, *inputs, **kwargs):
-        super(BertPreTrainedModel, self).__init__()
+        super(PreTrainedModel, self).__init__()
         if not isinstance(config, BertConfig):
             raise ValueError(
                 "Parameter config in `{}(config)` should be an instance of class `BertConfig`. "
@@ -547,21 +546,9 @@ class BertPreTrainedModel(nn.Module):
                 "`model = {}.from_pretrained(PRETRAINED_MODEL_NAME)`".format(
                     self.__class__.__name__, self.__class__.__name__
                 ))
+        # Save config in model
         self.config = config
-
-    def init_bert_weights(self, module):
-        """ Initialize the weights.
-        """
-        if isinstance(module, (nn.Linear, nn.Embedding)):
-            # Slightly different from the TF version which uses truncated_normal for initialization
-            # cf https://github.com/pytorch/pytorch/pull/5617
-            module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
-        elif isinstance(module, BertLayerNorm):
-            module.bias.data.zero_()
-            module.weight.data.fill_(1.0)
-        if isinstance(module, nn.Linear) and module.bias is not None:
-            module.bias.data.zero_()
-
+    
     @classmethod
     def from_pretrained(cls, pretrained_model_name_or_path, *inputs, **kwargs):
         """
@@ -584,19 +571,33 @@ class BertPreTrainedModel(nn.Module):
                 - a path or url to a pretrained model archive containing:
                     . `bert_config.json` a configuration file for the model
                     . `model.chkpt` a TensorFlow checkpoint
+
+            config: an optional instance of a class derived from :class `~torchKbert.modeling.BertConfig`.
+
             from_tf: should we load the weights from a locally saved TensorFlow checkpoint
+
             cache_dir: an optional path to a folder in which the pre-trained models will be cached.
+
             state_dict: an optional state dictionnary (collections.OrderedDict object) to use instead of Google pre-trained models
+
             *inputs, **kwargs: additional input for the specific Bert class
                 (ex: num_labels for BertForSequenceClassification)
         """
-        state_dict = kwargs.get('state_dict', None)
-        kwargs.pop('state_dict', None)
-        cache_dir = kwargs.get('cache_dir', None)
-        kwargs.pop('cache_dir', None)
-        from_tf = kwargs.get('from_tf', False)
-        kwargs.pop('from_tf', None)
+        config = kwargs.pop('config', None)
+        state_dict = kwargs.pop('state_dict', None)
+        cache_dir = kwargs.pop('cache_dir', None)
+        from_tf = kwargs.pop('from_tf', False)
 
+        # Load config
+        if config is None:
+            config_file = os.path.join(serialization_dir, CONFIG_NAME)
+            if not os.path.exists(config_file):
+                # Backward compatibility with old naming format
+                config_file = os.path.join(serialization_dir, BERT_CONFIG_NAME)
+            config = BertConfig.from_json_file(config_file)
+        logger.info("Model config {}".format(config))
+
+        # Load model
         if pretrained_model_name_or_path in PRETRAINED_MODEL_ARCHIVE_MAP:
             archive_file = PRETRAINED_MODEL_ARCHIVE_MAP[pretrained_model_name_or_path]
         else:
@@ -629,15 +630,10 @@ class BertPreTrainedModel(nn.Module):
             with tarfile.open(resolved_archive_file, 'r:gz') as archive:
                 archive.extractall(tempdir)
             serialization_dir = tempdir
-        # Load config
-        config_file = os.path.join(serialization_dir, CONFIG_NAME)
-        if not os.path.exists(config_file):
-            # Backward compatibility with old naming format
-            config_file = os.path.join(serialization_dir, BERT_CONFIG_NAME)
-        config = BertConfig.from_json_file(config_file)
-        logger.info("Model config {}".format(config))
+
         # Instantiate model.
         model = cls(config, *inputs, **kwargs)
+
         if state_dict is None and not from_tf:
             weights_path = os.path.join(serialization_dir, WEIGHTS_NAME)
             state_dict = torch.load(weights_path, map_location='cpu')
@@ -648,7 +644,8 @@ class BertPreTrainedModel(nn.Module):
             # Directly load from a TensorFlow checkpoint
             weights_path = os.path.join(serialization_dir, TF_WEIGHTS_NAME)
             return load_tf_weights_in_bert(model, weights_path)
-        # Load from a PyTorch state_dict
+
+        # Convert old format to new format if needed from from a PyTorch state_dict
         old_keys = []
         new_keys = []
         for key in state_dict.keys():
@@ -663,6 +660,7 @@ class BertPreTrainedModel(nn.Module):
         for old_key, new_key in zip(old_keys, new_keys):
             state_dict[new_key] = state_dict.pop(old_key)
 
+        # Load from a PyTorch state_dict
         missing_keys = []
         unexpected_keys = []
         error_msgs = []
@@ -679,6 +677,8 @@ class BertPreTrainedModel(nn.Module):
             for name, child in module._modules.items():
                 if child is not None:
                     load(child, prefix + name + '.')
+
+        # Make sure we are able to load base models as well as derived models (with heads)
         start_prefix = ''
         if not hasattr(model, 'bert') and any(s.startswith('bert.') for s in state_dict.keys()):
             start_prefix = 'bert.'
@@ -692,7 +692,29 @@ class BertPreTrainedModel(nn.Module):
         if len(error_msgs) > 0:
             raise RuntimeError('Error(s) in loading state_dict for {}:\n\t{}'.format(
                                model.__class__.__name__, "\n\t".join(error_msgs)))
+
         return model
+
+
+class BertPreTrainedModel(PreTrainedModel):
+    """ An abstract class to handle weights initialization and
+        a simple interface for dowloading and loading pretrained models.
+    """
+    def __init__(self, *inputs, **kwargs):
+        super(BertPreTrainedModel, self).__init__(*inputs, **kwargs)
+
+    def init_bert_weights(self, module):
+        """ Initialize the weights.
+        """
+        if isinstance(module, (nn.Linear, nn.Embedding)):
+            # Slightly different from the TF version which uses truncated_normal for initialization
+            # cf https://github.com/pytorch/pytorch/pull/5617
+            module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
+        elif isinstance(module, BertLayerNorm):
+            module.bias.data.zero_()
+            module.weight.data.fill_(1.0)
+        if isinstance(module, nn.Linear) and module.bias is not None:
+            module.bias.data.zero_()
 
 
 class BertModel(BertPreTrainedModel):
